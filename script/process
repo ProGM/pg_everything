@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+
+source ~/pgai-venv/bin/activate
+pgai vectorizer worker -d $DATABASE_URL --once

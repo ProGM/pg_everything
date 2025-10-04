@@ -1,0 +1,463 @@
+<!doctype html>
+<html lang="en" class="wa-theme-default wa-palette-default wa-brand-blue">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Pokémon Search • Auth + Alpine + Web Awesome</title>
+
+    <!-- Web Awesome styles -->
+    <link rel="stylesheet" href="https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/styles/themes/default.css" />
+    <link rel="stylesheet" href="https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/styles/native.css" />
+
+    <!-- Alpine.js -->
+    <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+    <!-- Web Awesome components -->
+    <script type="module">
+        import 'https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/components/input/input.js';
+        import 'https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/components/select/select.js';
+        import 'https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/components/option/option.js';
+        import 'https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/components/button/button.js';
+        import 'https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/components/card/card.js';
+        import 'https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/components/dialog/dialog.js';
+        import 'https://early.webawesome.com/webawesome@3.0.0-beta.6/dist/components/icon/icon.js';
+    </script>
+
+    <style>
+        :root {
+            --app-max: 1100px;
+        }
+
+        body {
+            margin: 0;
+            padding: 1rem;
+        }
+
+        .container {
+            margin: 0 auto;
+            max-width: var(--app-max);
+            display: grid;
+            grid-template-rows: auto auto 1fr auto;
+            row-gap: 1rem;
+        }
+
+        .toolbar {
+            display: grid;
+            grid-template-columns: 1fr auto auto;
+            gap: .5rem;
+            align-items: center;
+        }
+
+        .grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: .75rem;
+        }
+
+        .poke-img {
+            width: 100%;
+            aspect-ratio: 1/1;
+            object-fit: contain;
+            background: var(--wa-color-neutral-100);
+            border-radius: .5rem;
+        }
+
+        .muted {
+            opacity: .7;
+            font-size: .9em;
+        }
+
+        .row {
+            display: flex;
+            gap: .5rem;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .pagination {
+            display: flex;
+            gap: .5rem;
+            justify-content: center;
+            align-items: center;
+            padding: .5rem 0;
+        }
+
+        .chip {
+            padding: .125rem .5rem;
+            border-radius: 999px;
+            background: var(--wa-color-neutral-100);
+            font-size: .8em;
+        }
+
+        .center {
+            display: grid;
+            place-items: center;
+            min-height: 80vh;
+        }
+
+        .login-card {
+            width: min(420px, 100%);
+        }
+
+        @media (max-width:900px) {
+            .grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        @media (max-width:580px) {
+            .grid {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+
+<body x-data="app()" x-init="boot()" @keydown.window.ctrl.slash.prevent="$refs.search?.focus()">
+
+    <!-- ========== LOGIN VIEW ========== -->
+    <div class="center" x-show="!authed" x-cloak>
+        <wa-card class="login-card">
+            <div style="padding:1.25rem">
+                <h2 style="margin:.25rem 0 1rem">Sign in</h2>
+
+                <div class="alert-danger" x-show="authError">
+                    <wa-icon name="circle-exclamation"></wa-icon>
+                    <span x-text="authError"></span>
+                    <!-- <wa-button size="sm" variant="neutral" outline style="margin-left:auto"
+                        @click="authError=''">Dismiss</wa-button> -->
+                </div>
+
+                <wa-input placeholder="Email" type="email" autocomplete="username" @change="email=$event.target.value"
+                    @keydown.enter.prevent="$refs.pwd?.focus()">
+                    <wa-icon name="envelope" slot="prefix"></wa-icon>
+                </wa-input>
+
+                <div style="height:.6rem"></div>
+
+                <wa-input x-ref="pwd" placeholder="Password" type="password" autocomplete="current-password"
+                    @change="password=$event.target.value" @keydown.enter.prevent="login()">
+                    <wa-icon name="key" slot="prefix"></wa-icon>
+                </wa-input>
+
+                <div style="height:1rem"></div>
+
+                <wa-button type="button" variant="brand" :disabled="loggingIn" @click.prevent="login()">
+                    <wa-icon name="right-to-bracket" style="margin-right:.35rem"></wa-icon>
+                    Sign in
+                </wa-button>
+            </div>
+        </wa-card>
+    </div>
+
+    <!-- ========== APP VIEW (only after auth) ========== -->
+    <div class="container" x-show="authed" x-cloak>
+        <!-- Header -->
+        <div class="row" style="justify-content: space-between">
+            <h2 style="margin:0">Pokémon</h2>
+            <div class="row" style="gap:.5rem">
+                <span class="muted" x-text="userEmail || ''"></span>
+                <wa-button size="sm" variant="neutral" outline @click="logout()">
+                    <wa-icon name="right-from-bracket" style="margin-right:.35rem"></wa-icon> Logout
+                </wa-button>
+            </div>
+        </div>
+
+        <!-- Search toolbar -->
+        <div class="toolbar">
+            <wa-input x-ref="search" placeholder="Search Pokémon (name, description)…" clearable
+                @input="searchQuery=$event.target.value" @keydown.enter.prevent="doSearch()">
+                <wa-icon name="magnifying-glass" slot="prefix"></wa-icon>
+                <wa-button slot="suffix" variant="brand" @click="doSearch()">
+                    <wa-icon name="search" style="margin-right:.35rem"></wa-icon> Search
+                </wa-button>
+            </wa-input>
+
+            <wa-select style="min-width: 220px" value="fulltext" @change="strategy=$event.target.value">
+                <wa-option value="fulltext">Full-text</wa-option>
+                <wa-option value="embeddings">Semantic</wa-option>
+            </wa-select>
+
+            <wa-button variant="neutral" outline @click="resetSearch()" :disabled="!isSearching">
+                <wa-icon name="rotate-right" style="margin-right:.35rem"></wa-icon> Reset
+            </wa-button>
+        </div>
+
+        <!-- Info / status -->
+        <div class="row" style="justify-content: space-between">
+            <div class="muted" x-text="statusText()"></div>
+            <wa-spinner x-show="loading" size="sm" variant="brand"></wa-spinner>
+            <div class="muted" x-show="error" x-text="error"></div>
+        </div>
+
+        <!-- Grid -->
+        <div class="grid" role="list">
+            <template x-for="p in items" :key="p.id">
+                <wa-card interactive @click="openModal(p)">
+                    <img class="poke-img" :src="p.imageUrl" :alt="p.name" loading="lazy" />
+                    <div style="padding:.75rem">
+                        <div class="row">
+                            <strong x-text="`#${p.id.toString().padStart(3,'0')}`"></strong>
+                            <span class="muted" x-text="`Gen ${p.generation ?? '-'}`"></span>
+                        </div>
+                        <div style="margin-top:.25rem; font-size:1.05em; font-weight:600" x-text="p.name"></div>
+                        <div style="margin-top:.5rem; display:flex; gap:.4rem; flex-wrap:wrap">
+                            <span class="chip" x-text="p.type1 || '—'"></span>
+                            <span class="chip" x-show="p.type2" x-text="p.type2"></span>
+                            <span class="chip" x-show="p.legendary">Legendary</span>
+                        </div>
+                    </div>
+                </wa-card>
+            </template>
+        </div>
+
+        <!-- Pagination -->
+        <div class="pagination" x-show="!isSearching">
+            <wa-button variant="neutral" outline @click="prevPage()" :disabled="page===1 || loading">
+                <wa-icon name="angle-left" style="margin-right:.35rem"></wa-icon> Prev
+            </wa-button>
+
+            <span class="muted">
+                Page <span x-text="page"></span>
+                <template x-if="totalCount !== null">/ <span
+                        x-text="Math.max(1, Math.ceil(totalCount/pageSize))"></span></template>
+            </span>
+
+            <wa-button variant="neutral" outline @click="nextPage()"
+                :disabled="loading || (totalCount!==null && page>=Math.ceil(totalCount/pageSize))">
+                Next <wa-icon name="angle-right" style="margin-left:.35rem"></wa-icon>
+            </wa-button>
+        </div>
+    </div>
+
+    <!-- Details modal -->
+    <wa-dialog label="Pokémon Details" id="details">
+        <div x-show="selected">
+            <div class="row" style="gap:1rem; align-items:flex-start;">
+                <img class="poke-img" style="max-width:220px" :src="selected?.imageUrl" :alt="selected?.name" />
+                <div style="flex:1 1 auto">
+                    <h3 style="margin-top:0" x-text="selected?.name"></h3>
+                    <div class="muted" style="margin:.25rem 0 .5rem">
+                        <strong x-text="`#${selected?.id?.toString()?.padStart(3,'0')}`"></strong>
+                        · Gen <span x-text="selected?.generation ?? '-'"></span>
+                        · <span x-text="'Total '+(selected?.total ?? '-')"></span>
+                    </div>
+                    <div style="display:flex; gap:.5rem; flex-wrap:wrap; margin-bottom:.5rem">
+                        <span class="chip" x-text="selected?.type1 || '—'"></span>
+                        <span class="chip" x-show="selected?.type2" x-text="selected?.type2"></span>
+                        <span class="chip" x-show="selected?.legendary">Legendary</span>
+                    </div>
+                    <p x-text="selected?.description || '—'"></p>
+                </div>
+            </div>
+        </div>
+        <wa-button slot="footer" variant="brand" data-dialog="close">Close</wa-button>
+    </wa-dialog>
+
+    <script>
+        function app() {
+            const LOGIN_ENDPOINT = 'http://localhost:8080/login';
+            const GQL_ENDPOINT = 'http://localhost:8080/graphql';
+            const TOKEN_KEY = 'auth.token';
+            const EMAIL_KEY = 'auth.email';
+
+            const LIST_QUERY = `
+            {
+                pokemonCollection(first:$first, offset:$offset, orderBy:[{id:AscNullsLast}]) {
+                    edges {
+                        node {
+                            id name description type1 type2 total generation legendary imageUrl
+                        }
+                        cursor
+                    }
+                    totalCount
+                }
+            }
+            `;
+            const SEARCH_FULLTEXT = `
+            {
+                searchFullTextPokemon(content: $q, maxResults:$k) {
+                    id name description type1 type2 total generation legendary imageUrl
+                }
+            }
+            `;
+            const SEARCH_EMBED = `
+            {
+                searchEmbeddingsPokemon(content:$q, maxResults:$k) {
+                    id name description type1 type2 total generation legendary imageUrl
+                }
+            }
+            `;
+
+            // --- small utils ---
+            async function authFetch(url, opts = {}, token = null) {
+                const headers = Object.assign({ 'Content-Type': 'application/json' }, opts.headers || {});
+                if (token) headers['Authorization'] = token; // per spec: pass raw token
+                const res = await fetch(url, { ...opts, headers });
+                if (res.status === 401 || res.status === 403) {
+                    const text = await res.text().catch(() => '');
+                    const err = new Error('Unauthorized');
+                    err.__auth = true; err.detail = text;
+                    throw err;
+                }
+                return res;
+            }
+            async function gql(query, variables = {}, token = null) {
+                for (const [key, value] of Object.entries(variables || {})) {
+                    if (value === undefined) throw new Error('Undefined variable in GraphQL query');
+                    query = query.replace(new RegExp(`\\$${key}`, 'g'), value);
+                }
+                const res = await authFetch(GQL_ENDPOINT, {
+                    method: 'POST',
+                    body: JSON.stringify({ query })
+                }, token);
+                const json = await res.json();
+                if (json.errors) {
+                    const msg = json.errors.map(e => e.message).join(' | ');
+                    throw new Error(msg);
+                }
+                return json.data;
+            }
+            const normalizeSearch = (block) =>
+                !block ? [] :
+                    Array.isArray(block) ? block :
+                        block.edges ? block.edges.map(e => e.node) :
+                            block.id ? [block] : [];
+
+            return {
+                // ---------- auth state ----------
+                authed: false,
+                token: '',
+                userEmail: '',
+                email: '',
+                password: '',
+                loggingIn: false,
+                authError: '',
+
+                // ---------- app state ----------
+                items: [],
+                totalCount: null,
+                page: 1,
+                pageSize: 12,
+                loading: false,
+                error: '',
+                searchQuery: '',
+                strategy: 'fulltext',
+                isSearching: false,
+                selected: null,
+
+                // ---------- lifecycle ----------
+                boot() {
+                    // Restore token if present
+                    const t = sessionStorage.getItem(TOKEN_KEY);
+                    const e = sessionStorage.getItem(EMAIL_KEY);
+                    if (t) {
+                        this.token = t;
+                        this.userEmail = e || '';
+                        this.authed = true;
+                        this.loadPage(1);
+                    }
+                },
+
+                // ---------- auth actions ----------
+                async login() {
+                    this.authError = '';
+                    if (!this.email || !this.password) {
+                        this.authError = 'Email and password are required.';
+                        return;
+                    }
+                    this.loggingIn = true;
+                    try {
+                        const res = await authFetch(LOGIN_ENDPOINT, {
+                            method: 'POST',
+                            body: JSON.stringify({ email: this.email, password: this.password })
+                        }, null);
+                        const data = await res.json();
+                        if (!data?.token) throw new Error('No token returned by server.');
+                        this.token = data.token;
+                        this.userEmail = this.email;
+                        sessionStorage.setItem(TOKEN_KEY, this.token);
+                        sessionStorage.setItem(EMAIL_KEY, this.userEmail);
+                        this.authed = true;
+                        // Initial data load
+                        await this.loadPage(1);
+                    } catch (e) {
+                        this.authError = e?.message || 'Login failed.';
+                    } finally {
+                        this.loggingIn = false;
+                    }
+                },
+                logout() {
+                    this.authed = false;
+                    this.token = '';
+                    this.userEmail = '';
+                    sessionStorage.removeItem(TOKEN_KEY);
+                    sessionStorage.removeItem(EMAIL_KEY);
+                    // Clear any sensitive app state
+                    this.items = [];
+                    this.searchQuery = '';
+                    this.page = 1;
+                },
+
+                // ---------- computed ----------
+                statusText() {
+                    if (this.loading) return 'Loading…';
+                    if (this.error) return 'Error';
+                    if (this.isSearching) return `Showing ${this.items.length} result(s) for “${this.searchQuery}” (${this.strategy})`;
+                    if (this.totalCount !== null) {
+                        const start = (this.page - 1) * this.pageSize + 1;
+                        const end = Math.min(this.page * this.pageSize, this.totalCount);
+                        return `Showing ${start}–${end} of ${this.totalCount}`;
+                    }
+                    return '';
+                },
+
+                // ---------- data actions ----------
+                async loadPage(p) {
+                    if (!this.authed) return;
+                    this.loading = true; this.error = ''; this.isSearching = false;
+                    this.page = Math.max(1, p);
+                    try {
+                        const offset = (this.page - 1) * this.pageSize;
+                        console.log('Loading page', this.page, 'offset', offset);
+                        const data = await gql(LIST_QUERY, { first: this.pageSize, offset }, this.token);
+                        const col = data?.pokemonCollection;
+                        this.totalCount = col?.totalCount ?? null;
+                        this.items = (col?.edges || []).map(e => e.node);
+                    } catch (e) {
+                        if (e.__auth) { this.logout(); return; }
+                        this.error = e.message || String(e);
+                        this.items = []; this.totalCount = null;
+                    } finally { this.loading = false; }
+                },
+                async doSearch() {
+                    const q = (this.searchQuery || '').trim();
+                    if (!q) { this.resetSearch(); return; }
+                    this.loading = true; this.error = ''; this.isSearching = true;
+                    try {
+                        const query = this.strategy === 'embeddings' ? SEARCH_EMBED : SEARCH_FULLTEXT;
+                        const data = await gql(query, { q, k: 50 }, this.token);
+                        const block = data.searchFullTextPokemon ?? data.searchEmbeddingsPokemon ?? null;
+                        this.items = normalizeSearch(block);
+                        this.totalCount = null;
+                    } catch (e) {
+                        if (e.__auth) { this.logout(); return; }
+                        this.error = e.message || String(e);
+                        this.items = [];
+                    } finally { this.loading = false; }
+                },
+                resetSearch() {
+                    this.searchQuery = '';
+                    this.strategy = 'fulltext';
+                    this.loadPage(1);
+                },
+                nextPage() { if (!this.isSearching) this.loadPage(this.page + 1); },
+                prevPage() { if (!this.isSearching && this.page > 1) this.loadPage(this.page - 1); },
+                openModal(p) { this.selected = p; document.getElementById('details')?.show(); }
+            };
+        }
+    </script>
+</body>
+
+</html>

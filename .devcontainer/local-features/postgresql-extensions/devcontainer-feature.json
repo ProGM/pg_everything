@@ -1,0 +1,17 @@
+{
+    "id": "postgresql-extensions",
+    "version": "1.0.0",
+    "name": "PostgreSQL Extensions",
+    "description": "Installs PostgreSQL extensions",
+    "options": {
+        "version": {
+            "type": "string",
+            "default": "latest",
+            "description": "Version to install"
+        }
+    },
+    "installsAfter": [
+        "./local-features/postgresql",
+        "./local-features/asdf"
+    ]
+}

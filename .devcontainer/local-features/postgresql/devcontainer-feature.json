@@ -1,0 +1,13 @@
+{
+    "id": "postgresql",
+    "version": "1.0.0",
+    "name": "PostgreSQL",
+    "description": "Installs PostgreSQL database server",
+    "options": {
+        "version": {
+            "type": "string",
+            "default": "latest",
+            "description": "Version to install"
+        }
+    }
+}

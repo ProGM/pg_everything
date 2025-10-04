@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+
+set -e
+
+psql $DATABASE_URL -c "SELECT register_user('${ADMIN_EMAIL}', '${ADMIN_PASSWORD}');"
+echo "Admin user ${ADMIN_EMAIL} created."
+
+psql $DATABASE_URL -f /workspaces/pg_everything/data/data.sql
+echo "Sample data inserted."
+
+source ~/pgai-venv/bin/activate
+pgai vectorizer worker -d $DATABASE_URL --once
+
+echo "Setup complete."
