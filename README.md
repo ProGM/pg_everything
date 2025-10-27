@@ -1,6 +1,8 @@
-# PostgreSQL Pokédex Application
+# Full-Stack PostgreSQL Pokédex
 
 This is a simple Pokédex application built entirely with PostgreSQL, utilizing the `pg_graphql` extension to create a GraphQL API and the `omni_httpd` extension to create a REST API. The application allows users to list, view, search, and create Pokémon entries, as well as find Pokémon by location and similar images.
+
+For full details, see the [slides](slides.md) explaining how to build a full-stack application using PostgreSQL.
 
 ## Features
 - User authentication and authorization

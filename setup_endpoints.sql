@@ -5,6 +5,7 @@ DECLARE
     auth_header TEXT;
     request_json JSONB;
     query_string TEXT;
+    variables JSONB;
 BEGIN
     IF request.method <> 'POST' THEN
         RETURN omni_httpd.http_response(
@@ -27,10 +28,11 @@ BEGIN
 
     request_json := convert_from(request.body, 'UTF8')::jsonb;
     query_string := request_json->>'query';
+    variables := (request_json->>'variables')::jsonb;
 
     -- Process the GraphQL request
     RETURN omni_httpd.http_response(
-        body => graphql.resolve(query_string)::text
+        body => graphql.resolve(query_string, variables)::text
     );
 END;
 $$ LANGUAGE plpgsql;
