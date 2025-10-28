@@ -4,5 +4,10 @@
     "name": "ASDF",
     "description": "Installs asdf programming language via ASDF version manager",
     "options": {
+        "version": {
+            "type": "string",
+            "default": "latest",
+            "description": "Version of ASDF to install"
+        }
     }
 }
