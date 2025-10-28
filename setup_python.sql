@@ -13,7 +13,7 @@ DECLARE
 BEGIN
     SELECT py_range(1, 10) INTO python_output;
 
-    -- Process the GraphQL request
+    -- Process the request and return the output
     RETURN omni_httpd.http_response(
         body => python_output
     );
