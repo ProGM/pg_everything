@@ -19,7 +19,6 @@
 	"forwardPorts": [5432, 54321, 8080, 8081],
 
     "mounts": [
-    //   "source=asdf-cache,target=/home/root/.asdf,type=volume",
 		"source=pg-extensions,target=/home/root/extensions,type=volume"
     ],
 
